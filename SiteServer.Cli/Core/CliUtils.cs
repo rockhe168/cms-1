@@ -14,6 +14,43 @@ namespace SiteServer.Cli.Core
 
         private const int ConsoleTableWidth = 77;
 
+        public static ConfigInfo LoadConfig(string configFileName)
+        {
+            ConfigInfo configInfo = null;
+
+            if (string.IsNullOrEmpty(configFileName))
+            {
+                configFileName = "cli.json";
+            }
+
+            if (FileUtils.IsFileExists(PathUtils.Combine(PhysicalApplicationPath, configFileName)))
+            {
+                configInfo = TranslateUtils.JsonDeserialize<ConfigInfo>(
+                    FileUtils.ReadText(PathUtils.Combine(PhysicalApplicationPath, configFileName), Encoding.UTF8));
+
+                WebConfigUtils.Load(PhysicalApplicationPath, configInfo.RestoreConfig.DatabaseType, configInfo.RestoreConfig.ConnectionString);
+            }
+            else if (FileUtils.IsFileExists(PathUtils.Combine(PhysicalApplicationPath, "web.config")))
+            {
+                configInfo = new ConfigInfo();
+                WebConfigUtils.Load(PhysicalApplicationPath, "web.config");
+            }
+
+            if (configInfo != null)
+            {
+                if (configInfo.BackupConfig == null)
+                {
+                    configInfo.BackupConfig = new BackupConfigInfo();
+                }
+                if (configInfo.RestoreConfig == null)
+                {
+                    configInfo.RestoreConfig = new RestoreConfigInfo();
+                }
+            }
+
+            return configInfo;
+        }
+
         private static string AlignCentre(string text, int width)
         {
             text = text.Length > width ? text.Substring(0, width - 3) + "..." : text;
@@ -56,66 +93,10 @@ namespace SiteServer.Cli.Core
             Console.WriteLine(row);
         }
 
-        public static void PrintProgressBar(int progress, int total)
-        {
-            try
-            {
-                //draw empty progress bar
-                Console.CursorLeft = 0;
-                Console.Write("["); //start
-                Console.CursorLeft = 32;
-                Console.Write("]"); //end
-                Console.CursorLeft = 1;
-                float onechunk = 30.0f / total;
-
-                //draw filled part
-                int position = 1;
-                for (int i = 0; i < onechunk * progress; i++)
-                {
-                    Console.BackgroundColor = ConsoleColor.Green;
-                    Console.CursorLeft = position++;
-                    Console.Write(" ");
-                }
-
-                //draw unfilled part
-                for (int i = position; i <= 31; i++)
-                {
-                    Console.BackgroundColor = ConsoleColor.Gray;
-                    Console.CursorLeft = position++;
-                    Console.Write(" ");
-                }
-
-                //draw totals
-                Console.CursorLeft = 35;
-                Console.BackgroundColor = ConsoleColor.Black;
-                Console.Write(Convert.ToDouble(progress / (double) total).ToString("0%") +
-                              "    "); //blanks at the end remove any excess
-            }
-            catch
-            {
-                // ignored
-            }
-        }
-
-        public static void PrintProgressBarEnd()
-        {
-            try
-            {
-                Console.CursorLeft = 0;
-            }
-            catch
-            {
-                // ignored
-            }
-        }
-
         public static void PrintError(string errorMessage)
         {
             Console.WriteLine();
-            var color = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.Red;
             Console.Error.WriteLine(errorMessage);
-            Console.ForegroundColor = color;
         }
 
         public static void LogErrors(string commandName, List<TextLogInfo> logs)

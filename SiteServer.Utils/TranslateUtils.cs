@@ -15,7 +15,7 @@ using Newtonsoft.Json.Serialization;
 
 namespace SiteServer.Utils
 {
-    public class TranslateUtils
+    public static class TranslateUtils
     {
 
         //添加枚举：(fileAttributes | FileAttributes.ReadOnly)   判断枚举：((fileAttributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)   去除枚举：(fileAttributes ^ FileAttributes.ReadOnly)
@@ -1182,6 +1182,30 @@ namespace SiteServer.Utils
         public static RepeatLayout ToRepeatLayout(string typeStr)
         {
             return (RepeatLayout)ToEnum(typeof(RepeatLayout), typeStr, RepeatLayout.Table);
+        }
+
+        public static List<Dictionary<string, object>> DataTableToDictionaryList(DataTable dataTable)
+        {
+            var rows = new List<Dictionary<string, object>>();
+
+            foreach (DataRow dataRow in dataTable.Rows)
+            {
+                var row = new Dictionary<string, object>();
+                foreach (DataColumn col in dataTable.Columns)
+                {
+                    row.Add(col.ColumnName, dataRow[col]);
+                }
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        public static NameValueCollection NewIgnoreCaseNameValueCollection()
+        {
+            var comparer = StringComparer.OrdinalIgnoreCase;
+            var caseInsensitiveDictionary = new NameValueCollection(comparer);
+            return caseInsensitiveDictionary;
         }
     }
 }

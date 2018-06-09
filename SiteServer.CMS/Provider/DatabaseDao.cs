@@ -13,7 +13,6 @@ using Npgsql;
 using Oracle.ManagedDataAccess.Client;
 using SiteServer.CMS.Core;
 using SiteServer.CMS.Data;
-using SiteServer.CMS.Model;
 using SiteServer.Plugin;
 using SiteServer.Utils;
 using SiteServer.Utils.Enumerations;
@@ -405,7 +404,7 @@ namespace SiteServer.CMS.Provider
             return enumerable;
         }
 
-        public DataSet GetDataSet(string connectionString, string sqlString)
+        public DataTable GetDataTable(string connectionString, string sqlString)
         {
             if (string.IsNullOrEmpty(connectionString))
             {
@@ -414,14 +413,27 @@ namespace SiteServer.CMS.Provider
 
             if (string.IsNullOrEmpty(sqlString)) return null;
             var dataset = ExecuteDataset(connectionString, sqlString);
-            return dataset;
+
+            if (dataset == null || dataset.Tables.Count == 0) return null;
+
+            return dataset.Tables[0];
+        }
+
+        public DataSet GetDataSet(string connectionString, string sqlString)
+        {
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                connectionString = ConnectionString;
+            }
+
+            if (string.IsNullOrEmpty(sqlString)) return null;
+            return ExecuteDataset(connectionString, sqlString);
         }
 
         public DataSet GetDataSet(string sqlString)
         {
             if (string.IsNullOrEmpty(sqlString)) return null;
-            var dataset = ExecuteDataset(sqlString);
-            return dataset;
+            return ExecuteDataset(sqlString);
         }
 
         public void ReadResultsToNameValueCollection(IDataReader rdr, NameValueCollection attributes)
@@ -681,10 +693,10 @@ SELECT * FROM (
         public void AlterPluginTable(string pluginId, string tableName, List<TableColumn> tableColumns)
         {
             var isAltered = false;
-            var columnNameList = TableColumnManager.GetTableColumnNameListLowercase(tableName);
+            var columnNameList = TableColumnManager.GetTableColumnNameList(tableName);
             foreach (var tableColumn in tableColumns)
             {
-                if (columnNameList.Contains(tableColumn.AttributeName.ToLower())) continue;
+                if (StringUtils.ContainsIgnoreCase(columnNameList, tableColumn.AttributeName)) continue;
 
                 var columnSqlString = SqlUtils.GetColumnSqlString(tableColumn.DataType, tableColumn.AttributeName, tableColumn.DataLength);
                 var sqlString = SqlUtils.GetAddColumnsSqlString(tableName, columnSqlString);
@@ -706,7 +718,7 @@ SELECT * FROM (
             }
         }
 
-        public void CreateSystemTable(string tableName, List<TableColumnInfo> tableColumns)
+        public void CreateSystemTable(string tableName, List<TableColumn> tableColumns)
         {
             try
             {
@@ -714,15 +726,15 @@ SELECT * FROM (
 
                 sqlBuilder.Append($@"CREATE TABLE {tableName} (").AppendLine();
 
-                var primaryKeyColumns = new List<TableColumnInfo>();
+                var primaryKeyColumns = new List<TableColumn>();
                 foreach (var tableColumn in tableColumns)
                 {
-                    if (string.IsNullOrEmpty(tableColumn.ColumnName)) continue;
+                    if (string.IsNullOrEmpty(tableColumn.AttributeName)) continue;
 
                     if (tableColumn.IsIdentity)
                     {
                         primaryKeyColumns.Add(tableColumn);
-                        sqlBuilder.Append($@"{tableColumn.ColumnName} {SqlUtils.GetAutoIncrementDataType()},").AppendLine();
+                        sqlBuilder.Append($@"{tableColumn.AttributeName} {SqlUtils.GetAutoIncrementDataType()},").AppendLine();
                     }
                     else
                     {
@@ -731,8 +743,8 @@ SELECT * FROM (
                             primaryKeyColumns.Add(tableColumn);
                         }
 
-                        var columnSql = SqlUtils.GetColumnSqlString(tableColumn.DataType, tableColumn.ColumnName,
-                        tableColumn.Length);
+                        var columnSql = SqlUtils.GetColumnSqlString(tableColumn.DataType, tableColumn.AttributeName,
+                        tableColumn.DataLength);
                         if (!string.IsNullOrEmpty(columnSql))
                         {
                             sqlBuilder.Append(columnSql).Append(",").AppendLine();
@@ -743,8 +755,8 @@ SELECT * FROM (
                 foreach (var tableColumn in primaryKeyColumns)
                 {
                     sqlBuilder.Append(WebConfigUtils.DatabaseType == DatabaseType.MySql
-                        ? $@"PRIMARY KEY ({tableColumn.ColumnName}),"
-                        : $@"CONSTRAINT PK_{tableName}_{tableColumn.ColumnName} PRIMARY KEY ({tableColumn.ColumnName}),");
+                        ? $@"PRIMARY KEY ({tableColumn.AttributeName}),"
+                        : $@"CONSTRAINT PK_{tableName}_{tableColumn.AttributeName} PRIMARY KEY ({tableColumn.AttributeName}),");
                 }
                 if (primaryKeyColumns.Count > 0)
                 {
@@ -765,16 +777,16 @@ SELECT * FROM (
             }
         }
 
-        public void AlterSystemTable(string tableName, List<TableColumnInfo> tableColumns)
+        public void AlterSystemTable(string tableName, List<TableColumn> tableColumns)
         {
             var list = new List<string>();
 
-            var columnNameList = TableColumnManager.GetTableColumnNameListLowercase(tableName);
+            var columnNameList = TableColumnManager.GetTableColumnNameList(tableName);
             foreach (var tableColumn in tableColumns)
             {
-                if (columnNameList.Contains(tableColumn.ColumnName.ToLower())) continue;
+                if (StringUtils.ContainsIgnoreCase(columnNameList, tableColumn.AttributeName)) continue;
 
-                list.Add(SqlUtils.GetAddColumnsSqlString(tableName, SqlUtils.GetColumnSqlString(tableColumn.DataType, tableColumn.ColumnName, tableColumn.Length)));
+                list.Add(SqlUtils.GetAddColumnsSqlString(tableName, SqlUtils.GetColumnSqlString(tableColumn.DataType, tableColumn.AttributeName, tableColumn.DataLength)));
             }
 
             if (list.Count > 0)
@@ -934,7 +946,7 @@ SELECT * FROM (
             return defaultConstraintName;
         }
 
-        public List<TableColumnInfo> GetTableColumnInfoListLowercase(string connectionString, string tableName)
+        public List<TableColumn> GetTableColumnInfoList(string connectionString, string tableName)
         {
             if (string.IsNullOrEmpty(connectionString))
             {
@@ -943,23 +955,23 @@ SELECT * FROM (
 
             var databaseName = SqlUtils.GetDatabaseNameFormConnectionString(WebConfigUtils.DatabaseType, connectionString);
 
-            List<TableColumnInfo> list = null;
+            List<TableColumn> list = null;
 
             if (WebConfigUtils.DatabaseType == DatabaseType.MySql)
             {
-                list = GetMySqlColumnsLowercase(connectionString, databaseName, tableName);
+                list = GetMySqlColumns(connectionString, databaseName, tableName);
             }
             else if (WebConfigUtils.DatabaseType == DatabaseType.SqlServer)
             {
-                list = GetSqlServerColumnsLowercase(connectionString, databaseName, tableName);
+                list = GetSqlServerColumns(connectionString, databaseName, tableName);
             }
             else if (WebConfigUtils.DatabaseType == DatabaseType.PostgreSql)
             {
-                list = GetPostgreSqlColumnsLowercase(connectionString, databaseName, tableName);
+                list = GetPostgreSqlColumns(connectionString, databaseName, tableName);
             }
             else if (WebConfigUtils.DatabaseType == DatabaseType.Oracle)
             {
-                list = GetOracleColumnsLowercase(connectionString, tableName);
+                list = GetOracleColumns(connectionString, tableName);
             }
 
             return list;
@@ -1003,19 +1015,19 @@ SELECT * FROM (
             return sequence;
         }
 
-        private List<TableColumnInfo> GetOracleColumnsLowercase(string connectionString, string tableName)
+        private List<TableColumn> GetOracleColumns(string connectionString, string tableName)
         {
             var owner = SqlUtils.GetConnectionStringUserId(connectionString).ToUpper();
             tableName = tableName.ToUpper();
 
-            var list = new List<TableColumnInfo>();
+            var list = new List<TableColumn>();
             var sqlString =
                 $"SELECT COLUMN_NAME, DATA_TYPE, DATA_PRECISION, DATA_SCALE, CHAR_LENGTH, DATA_DEFAULT FROM all_tab_cols WHERE OWNER = '{owner}' and table_name = '{tableName}' and user_generated = 'YES' ORDER BY COLUMN_ID";
             using (var rdr = ExecuteReader(connectionString, sqlString))
             {
                 while (rdr.Read())
                 {
-                    var columnName = (rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0)).ToLower();
+                    var columnName = rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0);
                     var dataType = SqlUtils.ToDataType(DatabaseType.Oracle, rdr.IsDBNull(1) ? string.Empty : rdr.GetString(1));
                     var percision = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
                     var scale = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
@@ -1034,7 +1046,14 @@ SELECT * FROM (
                     }
                     var isIdentity = dataDefault.Contains(".nextval");
 
-                    var info = new TableColumnInfo(columnName, dataType, charLength, false, isIdentity);
+                    var info = new TableColumn
+                    {
+                        AttributeName = columnName,
+                        DataType = dataType,
+                        DataLength = charLength,
+                        IsPrimaryKey = false,
+                        IsIdentity = isIdentity
+                    };
                     list.Add(info);
                 }
                 rdr.Close();
@@ -1049,11 +1068,11 @@ and au.constraint_type = 'P' and cu.OWNER = '{owner}' and cu.table_name = '{tabl
             {
                 while (rdr.Read())
                 {
-                    var columnName = (rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0)).ToLower();
+                    var columnName = rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0);
 
                     foreach (var tableColumnInfo in list)
                     {
-                        if (columnName == tableColumnInfo.ColumnName)
+                        if (columnName == tableColumnInfo.AttributeName)
                         {
                             tableColumnInfo.IsPrimaryKey = true;
                             break;
@@ -1066,23 +1085,30 @@ and au.constraint_type = 'P' and cu.OWNER = '{owner}' and cu.table_name = '{tabl
             return list;
         }
 
-        private List<TableColumnInfo> GetPostgreSqlColumnsLowercase(string connectionString, string databaseName, string tableName)
+        private List<TableColumn> GetPostgreSqlColumns(string connectionString, string databaseName, string tableName)
         {
-            var list = new List<TableColumnInfo>();
-            string sqlString =
+            var list = new List<TableColumn>();
+            var sqlString =
                 $"SELECT COLUMN_NAME, UDT_NAME, CHARACTER_MAXIMUM_LENGTH, COLUMN_DEFAULT FROM information_schema.columns WHERE table_catalog = '{databaseName}' AND table_name = '{tableName.ToLower()}' ORDER BY ordinal_position";
             using (var rdr = ExecuteReader(connectionString, sqlString))
             {
                 while (rdr.Read())
                 {
-                    var columnName = (rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0)).ToLower();
+                    var columnName = rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0);
                     var dataType = SqlUtils.ToDataType(DatabaseType.PostgreSql, rdr.IsDBNull(1) ? string.Empty : rdr.GetString(1));
                     var length = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
                     var columnDefault = rdr.IsDBNull(3) ? string.Empty : rdr.GetString(3);
 
                     var isIdentity = columnDefault.StartsWith("nextval(");
 
-                    var info = new TableColumnInfo(columnName, dataType, length, false, isIdentity);
+                    var info = new TableColumn
+                    {
+                        AttributeName = columnName,
+                        DataType = dataType,
+                        DataLength = length,
+                        IsPrimaryKey = false,
+                        IsIdentity = isIdentity
+                    };
                     list.Add(info);
                 }
                 rdr.Close();
@@ -1094,7 +1120,7 @@ and au.constraint_type = 'P' and cu.OWNER = '{owner}' and cu.table_name = '{tabl
             {
                 while (rdr.Read())
                 {
-                    var columnName = (rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0)).ToLower();
+                    var columnName = rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0);
                     var constraintName = rdr.IsDBNull(1) ? string.Empty : rdr.GetString(1);
 
                     var isPrimary = constraintName.StartsWith("pk");
@@ -1103,7 +1129,7 @@ and au.constraint_type = 'P' and cu.OWNER = '{owner}' and cu.table_name = '{tabl
                     {
                         foreach (var tableColumnInfo in list)
                         {
-                            if (columnName == tableColumnInfo.ColumnName)
+                            if (columnName == tableColumnInfo.AttributeName)
                             {
                                 tableColumnInfo.IsPrimaryKey = true;
                                 break;
@@ -1117,9 +1143,9 @@ and au.constraint_type = 'P' and cu.OWNER = '{owner}' and cu.table_name = '{tabl
             return list;
         }
 
-        private List<TableColumnInfo> GetSqlServerColumnsLowercase(string connectionString, string databaseName, string tableName)
+        private List<TableColumn> GetSqlServerColumns(string connectionString, string databaseName, string tableName)
         {
-            var list = new List<TableColumnInfo>();
+            var list = new List<TableColumn>();
 
             var isIdentityExist = false;
             var tableId = string.Empty;
@@ -1135,15 +1161,15 @@ and au.constraint_type = 'P' and cu.OWNER = '{owner}' and cu.table_name = '{tabl
                 rdr.Close();
             }
 
-            string sqlString =
+            var sqlString =
                 $"select C.name, T.name, C.length, C.colstat, case when C.autoval is null then 0 else 1 end, SC.text, (select CForgin.name from [{databaseName}]..sysreferences Sr,[{databaseName}]..sysobjects O,[{databaseName}]..syscolumns CForgin where Sr.fkeyid={tableId} and Sr.fkey1=C.colid and Sr.rkeyid=O.id and CForgin.id=O.id and CForgin.colid=Sr.rkey1), (select O.name from [{databaseName}]..sysreferences Sr,[{databaseName}]..sysobjects O,[{databaseName}]..syscolumns CForgin where Sr.fkeyid={tableId} and Sr.fkey1=C.colid and Sr.rkeyid=O.id and CForgin.id=O.id and CForgin.colid=Sr.rkey1), (select Sr.rkeyid from [{databaseName}]..sysreferences Sr,[{databaseName}]..sysobjects O,[{databaseName}]..syscolumns CForgin where Sr.fkeyid={tableId} and Sr.fkey1=C.colid and Sr.rkeyid=O.id and CForgin.id=O.id and CForgin.colid=Sr.rkey1) from [{databaseName}]..systypes T, [{databaseName}]..syscolumns C left join [{databaseName}]..syscomments SC on C.cdefault=SC.id where C.id={tableId} and C.xtype=T.xusertype order by C.colid";
 
             using (var rdr = ExecuteReader(connectionString, sqlString))
             {
                 while (rdr.Read())
                 {
-                    var columnName = (rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0)).ToLower();
-                    if (columnName == "msrepl_tran_version") //sqlserver ���������ֶΣ�����
+                    var columnName = rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0);
+                    if (columnName == "msrepl_tran_version")
                     {
                         continue;
                     }
@@ -1160,13 +1186,19 @@ and au.constraint_type = 'P' and cu.OWNER = '{owner}' and cu.table_name = '{tabl
 
                     var isPrimaryKey = isPrimaryKeyInt == 1;
                     var isIdentity = isIdentityInt == 1 || StringUtils.EqualsIgnoreCase(columnName, "Id");
-                    //sqlserver 2005 ����isIdentity�������ȷ,so �ڴ˼�������ID�ֶ�ΪIdenity�ֶ�
                     if (isIdentity)
                     {
                         isIdentityExist = true;
                     }
 
-                    var info = new TableColumnInfo(columnName, dataType, length, isPrimaryKey, isIdentity);
+                    var info = new TableColumn
+                    {
+                        AttributeName = columnName,
+                        DataType = dataType,
+                        DataLength = length,
+                        IsPrimaryKey = isPrimaryKey,
+                        IsIdentity = isIdentity
+                    };
                     list.Add(info);
                 }
                 rdr.Close();
@@ -1181,14 +1213,14 @@ and au.constraint_type = 'P' and cu.OWNER = '{owner}' and cu.table_name = '{tabl
                 {
                     if (rdr.Read())
                     {
-                        clName = (rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0)).ToLower();
+                        clName = rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0);
                     }
                     rdr.Close();
                 }
 
                 foreach (var info in list)
                 {
-                    if (clName == info.ColumnName)
+                    if (clName == info.AttributeName)
                     {
                         info.IsIdentity = true;
                     }
@@ -1198,9 +1230,9 @@ and au.constraint_type = 'P' and cu.OWNER = '{owner}' and cu.table_name = '{tabl
             return list;
         }
 
-        private List<TableColumnInfo> GetMySqlColumnsLowercase(string connectionString, string databaseName, string tableName)
+        private List<TableColumn> GetMySqlColumns(string connectionString, string databaseName, string tableName)
         {
-            var list = new List<TableColumnInfo>();
+            var list = new List<TableColumn>();
 
             string sqlString =
                 $"select COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, COLUMN_KEY from information_schema.columns where table_schema = '{databaseName}' and table_name = '{tableName}' order by table_name,ordinal_position; ";
@@ -1208,14 +1240,21 @@ and au.constraint_type = 'P' and cu.OWNER = '{owner}' and cu.table_name = '{tabl
             {
                 while (rdr.Read())
                 {
-                    var columnName = (rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0)).ToLower();
+                    var columnName = rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0);
                     var dataType = SqlUtils.ToDataType(DatabaseType.MySql, rdr.IsDBNull(1) ? string.Empty : rdr.GetString(1));
                     var length = rdr.IsDBNull(2) || dataType == DataType.Text ? 0 : Convert.ToInt32(rdr.GetValue(2));
                     var isPrimaryKey = Convert.ToString(rdr.GetValue(3)) == "PRI";
 
                     var isIdentity = isPrimaryKey && StringUtils.EqualsIgnoreCase(columnName, "Id");
 
-                    var info = new TableColumnInfo(columnName, dataType, length, isPrimaryKey, isIdentity);
+                    var info = new TableColumn
+                    {
+                        AttributeName = columnName,
+                        DataType = dataType,
+                        DataLength = length,
+                        IsPrimaryKey = isPrimaryKey,
+                        IsIdentity = isIdentity
+                    };
                     list.Add(info);
                 }
                 rdr.Close();
@@ -1620,14 +1659,14 @@ FROM (SELECT TOP {totalNum} *
             return objects;
         }
 
-        public string AddIdentityColumnIdIfNotExists(string tableName, List<TableColumnInfo> columns)
+        public string AddIdentityColumnIdIfNotExists(string tableName, List<TableColumn> columns)
         {
             var identityColumnName = string.Empty;
             foreach (var column in columns)
             {
-                if (column.IsIdentity || StringUtils.EqualsIgnoreCase(column.ColumnName, "id"))
+                if (column.IsIdentity || StringUtils.EqualsIgnoreCase(column.AttributeName, "id"))
                 {
-                    identityColumnName = column.ColumnName;
+                    identityColumnName = column.AttributeName;
                     break;
                 }
             }
@@ -1639,7 +1678,14 @@ FROM (SELECT TOP {totalNum} *
                     SqlUtils.GetAddColumnsSqlString(tableName, $"{identityColumnName} {SqlUtils.GetAutoIncrementDataType()}");
                 DataProvider.DatabaseDao.ExecuteSql(sqlString);
 
-                columns.Insert(0, new TableColumnInfo(identityColumnName, DataType.Integer, 0, false, true));
+                columns.Insert(0, new TableColumn
+                {
+                    AttributeName = identityColumnName,
+                    DataType = DataType.Integer,
+                    DataLength = 0,
+                    IsPrimaryKey = false,
+                    IsIdentity = true
+                });
             }
 
             return identityColumnName;
@@ -1660,12 +1706,12 @@ FROM (SELECT TOP {totalNum} *
             return objects;
         }
 
-        public void InsertMultiple(string tableName, IEnumerable<JObject> items, List<TableColumnInfo> tableColumns)
+        public void InsertMultiple(string tableName, IEnumerable<JObject> items, List<TableColumn> tableColumns)
         {
             var columnNames = new StringBuilder();
             foreach (var tableColumn in tableColumns)
             {
-                columnNames.Append($"{tableColumn.ColumnName},");
+                columnNames.Append($"{tableColumn.AttributeName},");
             }
             columnNames.Length -= 1;
 
@@ -1681,7 +1727,7 @@ FROM (SELECT TOP {totalNum} *
                 foreach (var tableColumn in tableColumns)
                 {
                     object val;
-                    dict.TryGetValue(tableColumn.ColumnName, out val);
+                    dict.TryGetValue(tableColumn.AttributeName, out val);
 
                     if (tableColumn.DataType == DataType.Integer)
                     {
@@ -1695,7 +1741,7 @@ FROM (SELECT TOP {totalNum} *
                     }
                     else if (tableColumn.DataType == DataType.Boolean)
                     {
-                        var paramName = $"@{tableColumn.ColumnName}_{index}";
+                        var paramName = $"@{tableColumn.AttributeName}_{index}";
                         if (val == null) val = false;
                         values.Append($"{paramName},");
                         parameterList.Add(GetParameter(paramName, tableColumn.DataType, Convert.ToBoolean(val)));
@@ -1707,7 +1753,7 @@ FROM (SELECT TOP {totalNum} *
                     }
                     else
                     {
-                        var paramName = $"@{tableColumn.ColumnName}_{index}";
+                        var paramName = $"@{tableColumn.AttributeName}_{index}";
                         values.Append($"{paramName},");
                         parameterList.Add(GetParameter(paramName, tableColumn.DataType, Convert.ToString(val)));
                     }
@@ -1731,31 +1777,57 @@ FROM (SELECT TOP {totalNum} *
 
         private void InsertRows(string tableName, string columnNames, List<string> valuesList, List<IDataParameter> parameterList)
         {
-            var sqlStringBuilder = new StringBuilder($@"INSERT INTO {tableName} ({columnNames}) VALUES ");
-            foreach (var values in valuesList)
+            if (WebConfigUtils.DatabaseType == DatabaseType.SqlServer)
             {
-                sqlStringBuilder.Append($"({values}), ");
-            }
-            sqlStringBuilder.Length -= 2;
+                var sqlStringBuilder = new StringBuilder($@"INSERT INTO {tableName} ({columnNames}) VALUES ");
+                foreach (var values in valuesList)
+                {
+                    sqlStringBuilder.Append($"({values}), ");
+                }
+                sqlStringBuilder.Length -= 2;
 
-            var sqlString = sqlStringBuilder.ToString();
+                var sqlString = sqlStringBuilder.ToString();
 
-            var isIdentityColumn = !StringUtils.EqualsIgnoreCase(tableName, DataProvider.SiteDao.TableName);
-            if (isIdentityColumn && WebConfigUtils.DatabaseType == DatabaseType.SqlServer)
-            {
-                sqlString = $@"
+                var isIdentityColumn = !StringUtils.EqualsIgnoreCase(tableName, DataProvider.SiteDao.TableName);
+                if (isIdentityColumn)
+                {
+                    sqlString = $@"
 SET IDENTITY_INSERT {tableName} ON
 {sqlString}
 SET IDENTITY_INSERT {tableName} OFF
 ";
-            }
+                }
 
-            ExecuteNonQuery(sqlString, parameterList.ToArray());
+                ExecuteNonQuery(sqlString, parameterList.ToArray());
+            }
+            else if (WebConfigUtils.DatabaseType == DatabaseType.Oracle)
+            {
+                var sqlStringBuilder = new StringBuilder("INSERT ALL");
+                foreach (var values in valuesList)
+                {
+                    sqlStringBuilder.Append($@" INTO {tableName} ({columnNames}) VALUES ({values})");
+                }
+
+                sqlStringBuilder.Append(" SELECT 1 FROM DUAL");
+
+                ExecuteNonQuery(sqlStringBuilder.ToString(), parameterList.ToArray());
+            }
+            else
+            {
+                var sqlStringBuilder = new StringBuilder($@"INSERT INTO {tableName} ({columnNames}) VALUES ");
+                foreach (var values in valuesList)
+                {
+                    sqlStringBuilder.Append($"({values}), ");
+                }
+                sqlStringBuilder.Length -= 2;
+
+                ExecuteNonQuery(sqlStringBuilder.ToString(), parameterList.ToArray());
+            }
         }
 
         private ETriState _sqlServerVersionState = ETriState.All;
 
-        public bool IsSqlServer2012
+        private bool IsSqlServer2012
         {
             get
             {
@@ -1790,6 +1862,11 @@ SET IDENTITY_INSERT {tableName} OFF
         public string GetPageSqlString(string tableName, string columnNames, string whereSqlString, string orderSqlString, int offset, int limit)
         {
             var retval = string.Empty;
+
+            if (string.IsNullOrEmpty(orderSqlString))
+            {
+                orderSqlString = "ORDER BY Id DESC";
+            }
 
             if (WebConfigUtils.DatabaseType == DatabaseType.MySql)
             {

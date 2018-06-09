@@ -9,9 +9,9 @@ using SiteServer.Utils.Enumerations;
 
 namespace SiteServer.CMS.Api.V1
 {
-    public class ApiStlManager
+    public class StlRequest
     {
-        public AuthRequest Request { get; }
+        private AuthRequest Request { get; }
 
         public bool IsAuthorized { get; }
 
@@ -21,7 +21,7 @@ namespace SiteServer.CMS.Api.V1
 
         public ContextInfo ContextInfo { get; }
 
-        public ApiStlManager()
+        public StlRequest()
         {
             Request = new AuthRequest();
             IsAuthorized = AccessTokenManager.IsScope(Request.ApiToken, AccessTokenManager.ScopeStl);
@@ -70,17 +70,17 @@ namespace SiteServer.CMS.Api.V1
                 UserInfo = Request.UserInfo
             };
 
-            var dict = new Dictionary<string, string>();
-            foreach (string key in Request.QueryString.Keys)
+            var attributes = TranslateUtils.NewIgnoreCaseNameValueCollection();
+            foreach (var key in Request.QueryString.AllKeys)
             {
-                dict[key] = Request.QueryString[key];
+                attributes[key] = Request.QueryString[key];
             }
 
             ContextInfo = new ContextInfo(PageInfo)
             {
                 IsStlEntity = true,
-                Attributes = dict,
-                InnerXml = string.Empty
+                Attributes = attributes,
+                InnerHtml = string.Empty
             };
         }
     }

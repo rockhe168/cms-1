@@ -421,10 +421,10 @@ namespace SiteServer.CMS.StlParser.Utility
             return dataSet;
         }
 
-        public static IDataReader GetSqlContentsDataSource(string connectionString, string queryString, int startNum, int totalNum, string orderByString)
+        public static DataSet GetSqlContentsDataSource(string connectionString, string queryString, int startNum, int totalNum, string orderByString)
         {
             var sqlString = TableStructure.GetSelectSqlStringByQueryString(connectionString, queryString, startNum, totalNum, orderByString);
-            return DataProvider.DatabaseDao.GetDataSource(connectionString, sqlString);
+            return Database.GetDataSet(connectionString, sqlString);
         }
 
         public static DataSet GetPageSqlContentsDataSet(string connectionString, string queryString, int startNum, int totalNum, string orderByString)
@@ -436,36 +436,6 @@ namespace SiteServer.CMS.StlParser.Utility
         public static IDataReader GetSitesDataSource(string siteName, string siteDir, int startNum, int totalNum, string whereString, EScopeType scopeType, string orderByString, string since)
         {
             return DataProvider.SiteDao.GetStlDataSource(siteName, siteDir, startNum, totalNum, whereString, scopeType, orderByString, since);
-        }
-
-        public static DataSet GetDataSourceByStlElement(SiteInfo siteInfo, int templateId, string elementName, string stlElement)
-        {
-            var xmlDocument = StlParserUtility.GetXmlDocument(stlElement, false);
-            XmlNode node = xmlDocument.DocumentElement;
-            if (node == null) return null;
-
-            node = node.FirstChild;
-
-            var templateInfo = TemplateManager.GetTemplateInfo(siteInfo.Id, templateId);
-            var pageInfo = new PageInfo(siteInfo.Id, 0, siteInfo, templateInfo, new Dictionary<string, object>());
-            var contextInfo = new ContextInfo(pageInfo);
-
-            if (node?.Name == null) return null;
-
-            if (elementName == StlChannels.ElementName)
-            {
-                var listInfo = ListInfo.GetListInfoByXmlNode(pageInfo, contextInfo, EContextType.Channel);
-
-                return StlChannels.GetDataSource(pageInfo, contextInfo, listInfo);
-            }
-            if (elementName == StlContents.ElementName)
-            {
-                var listInfo = ListInfo.GetListInfoByXmlNode(pageInfo, contextInfo, EContextType.Content);
-
-                return StlContents.GetDataSource(pageInfo, contextInfo, listInfo);
-            }
-
-            return null;
         }
     }
 }

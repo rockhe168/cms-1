@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using Dapper;
 using SiteServer.CMS.Core;
 using SiteServer.CMS.Data;
 using SiteServer.CMS.Model;
@@ -17,182 +19,182 @@ namespace SiteServer.CMS.Provider
     {
         public override string TableName => "siteserver_User";
 
-        public override List<TableColumnInfo> TableColumns => new List<TableColumnInfo>
+        public override List<TableColumn> TableColumns => new List<TableColumn>
         {
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Id),
+                AttributeName = nameof(UserInfo.Id),
                 DataType = DataType.Integer,
                 IsIdentity = true,
                 IsPrimaryKey = true
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.UserName),
+                AttributeName = nameof(UserInfo.UserName),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Password),
+                AttributeName = nameof(UserInfo.Password),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.PasswordFormat),
+                AttributeName = nameof(UserInfo.PasswordFormat),
                 DataType = DataType.VarChar,
-                Length = 50
+                DataLength = 50
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.PasswordSalt),
+                AttributeName = nameof(UserInfo.PasswordSalt),
                 DataType = DataType.VarChar,
-                Length = 128
+                DataLength = 128
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.CreateDate),
+                AttributeName = nameof(UserInfo.CreateDate),
                 DataType = DataType.DateTime
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.LastResetPasswordDate),
+                AttributeName = nameof(UserInfo.LastResetPasswordDate),
                 DataType = DataType.DateTime
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.LastActivityDate),
+                AttributeName = nameof(UserInfo.LastActivityDate),
                 DataType = DataType.DateTime
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.CountOfLogin),
+                AttributeName = nameof(UserInfo.CountOfLogin),
                 DataType = DataType.Integer
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.CountOfFailedLogin),
+                AttributeName = nameof(UserInfo.CountOfFailedLogin),
                 DataType = DataType.Integer
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.CountOfWriting),
+                AttributeName = nameof(UserInfo.CountOfWriting),
                 DataType = DataType.Integer
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.IsChecked),
+                AttributeName = nameof(UserInfo.IsChecked),
                 DataType = DataType.VarChar,
-                Length = 18
+                DataLength = 18
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.IsLockedOut),
+                AttributeName = nameof(UserInfo.IsLockedOut),
                 DataType = DataType.VarChar,
-                Length = 18
+                DataLength = 18
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.DisplayName),
+                AttributeName = nameof(UserInfo.DisplayName),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Email),
+                AttributeName = nameof(UserInfo.Email),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Mobile),
+                AttributeName = nameof(UserInfo.Mobile),
                 DataType = DataType.VarChar,
-                Length = 20
+                DataLength = 20
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.AvatarUrl),
+                AttributeName = nameof(UserInfo.AvatarUrl),
                 DataType = DataType.VarChar,
-                Length = 200
+                DataLength = 200
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Organization),
+                AttributeName = nameof(UserInfo.Organization),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Department),
+                AttributeName = nameof(UserInfo.Department),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Position),
+                AttributeName = nameof(UserInfo.Position),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Gender),
+                AttributeName = nameof(UserInfo.Gender),
                 DataType = DataType.VarChar,
-                Length = 50
+                DataLength = 50
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Birthday),
+                AttributeName = nameof(UserInfo.Birthday),
                 DataType = DataType.VarChar,
-                Length = 50
+                DataLength = 50
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Education),
+                AttributeName = nameof(UserInfo.Education),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Graduation),
+                AttributeName = nameof(UserInfo.Graduation),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Address),
+                AttributeName = nameof(UserInfo.Address),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.WeiXin),
+                AttributeName = nameof(UserInfo.WeiXin),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Qq),
+                AttributeName = nameof(UserInfo.Qq),
                 DataType = DataType.VarChar,
-                Length = 50
+                DataLength = 50
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.WeiBo),
+                AttributeName = nameof(UserInfo.WeiBo),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Interests),
+                AttributeName = nameof(UserInfo.Interests),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             },
-            new TableColumnInfo
+            new TableColumn
             {
-                ColumnName = nameof(UserInfo.Signature),
+                AttributeName = nameof(UserInfo.Signature),
                 DataType = DataType.VarChar,
-                Length = 255
+                DataLength = 255
             }
         };
 
@@ -234,7 +236,7 @@ namespace SiteServer.CMS.Provider
             {
                 return true;
             }
-            var obj = CacheUtils.Get($"BaiRong.Core.Provider.UserDao.Insert.IpAddress.{ipAddress}");
+            var obj = CacheUtils.Get($"SiteServer.CMS.Provider.UserDao.Insert.IpAddress.{ipAddress}");
             return obj == null;
         }
 
@@ -242,13 +244,14 @@ namespace SiteServer.CMS.Provider
         {
             if (ConfigManager.SystemConfigInfo.UserRegistrationMinMinutes > 0 && !string.IsNullOrEmpty(ipAddress))
             {
-                CacheUtils.InsertMinutes($"BaiRong.Core.Provider.UserDao.Insert.IpAddress.{ipAddress}", ipAddress, ConfigManager.SystemConfigInfo.UserRegistrationMinMinutes);
+                CacheUtils.InsertMinutes($"SiteServer.CMS.Provider.UserDao.Insert.IpAddress.{ipAddress}", ipAddress, ConfigManager.SystemConfigInfo.UserRegistrationMinMinutes);
             }
         }
 
-        public bool Insert(IUserInfo userInfo, string password, string ipAddress, out string errorMessage)
+        private bool InsertValidate(IUserInfo userInfo, string password, string ipAddress, out string errorMessage)
         {
             errorMessage = string.Empty;
+
             if (!IpAddressIsRegisterAllowed(ipAddress))
             {
                 errorMessage = $"同一IP在{ConfigManager.SystemConfigInfo.UserRegistrationMinMinutes}分钟内只能注册一次";
@@ -290,6 +293,14 @@ namespace SiteServer.CMS.Provider
                 errorMessage = "用户名已被注册，请更换用户名";
                 return false;
             }
+
+            return true;
+        }
+
+        public bool Insert(IUserInfo userInfo, string password, string ipAddress, out string errorMessage)
+        {
+            errorMessage = string.Empty;
+            if (!InsertValidate(userInfo, password, ipAddress, out errorMessage)) return false;
 
             try
             {
@@ -1219,9 +1230,13 @@ namespace SiteServer.CMS.Provider
             return enumerable;
         }
 
-        public bool CheckPassword(string password, string dbpassword, EPasswordFormat passwordFormat, string passwordSalt)
+        public bool CheckPassword(string password, bool isPasswordMd5, string dbpassword, EPasswordFormat passwordFormat, string passwordSalt)
         {
             var decodePassword = DecodePassword(dbpassword, passwordFormat, passwordSalt);
+            if (isPasswordMd5)
+            {
+                return password == AuthUtils.Md5ByString(decodePassword);
+            }
             return password == decodePassword;
         }
 
@@ -1279,7 +1294,7 @@ namespace SiteServer.CMS.Provider
             ExecuteNonQuery(sqlString, updateParms);
         }
 
-        public bool Validate(string account, string password, out string userName, out string errorMessage)
+        public bool Validate(string account, string password, bool isPasswordMd5, out string userName, out string errorMessage)
         {
             userName = string.Empty;
             errorMessage = string.Empty;
@@ -1341,7 +1356,7 @@ namespace SiteServer.CMS.Provider
                 }
             }
 
-            if (!CheckPassword(password, userInfo.Password, EPasswordFormatUtils.GetEnumType(userInfo.PasswordFormat), userInfo.PasswordSalt))
+            if (!CheckPassword(password, isPasswordMd5, userInfo.Password, EPasswordFormatUtils.GetEnumType(userInfo.PasswordFormat), userInfo.PasswordSalt))
             {
                 LogUtils.AddUserLog(userInfo.UserName, "用户登录失败", "帐号或密码错误");
                 errorMessage = "帐号或密码错误";
@@ -1425,6 +1440,53 @@ SELECT COUNT(*) AS AddNum, AddYear FROM (
                 rdr.Close();
             }
             return dict;
+        }
+
+        public int ApiGetCount()
+        {
+            return DataProvider.DatabaseDao.GetCount(TableName);
+        }
+
+        public List<UserInfo> ApiGetUsers(int offset, int limit)
+        {
+            var sqlString =
+                DataProvider.DatabaseDao.GetPageSqlString(TableName, "*", string.Empty, "ORDER BY Id", offset, limit);
+            using (var connection = GetConnection())
+            {
+                return connection.Query<UserInfo>(sqlString).ToList();
+            }
+        }
+
+        public bool ApiInsert(UserInfo userInfo, string ipAddress, out string errorMessage)
+        {
+            errorMessage = string.Empty;
+            if (!InsertValidate(userInfo, userInfo.Password, ipAddress, out errorMessage)) return false;
+
+            try
+            {
+                var passwordSalt = string.IsNullOrEmpty(userInfo.PasswordSalt) ? GenerateSalt() : userInfo.PasswordSalt;
+
+                userInfo.Password = EncodePassword(userInfo.Password, EPasswordFormatUtils.GetEnumType(userInfo.PasswordFormat), passwordSalt);
+                userInfo.CreateDate = DateTime.Now;
+                userInfo.LastActivityDate = DateTime.Now;
+                userInfo.LastResetPasswordDate = DateUtils.SqlMinValue;
+
+                const string sqlString = "INSERT INTO siteserver_User (UserName, Password, PasswordFormat, PasswordSalt, CreateDate, LastResetPasswordDate, LastActivityDate, CountOfLogin, CountOfFailedLogin, CountOfWriting, IsChecked, IsLockedOut, DisplayName, Email, Mobile, AvatarUrl, Organization, Department, Position, Gender, Birthday, Education, Graduation, Address, WeiXin, QQ, WeiBo, Interests, Signature) VALUES (@UserName, @Password, @PasswordFormat, @PasswordSalt, @CreateDate, @LastResetPasswordDate, @LastActivityDate, @CountOfLogin, @CountOfFailedLogin, @CountOfWriting, @IsChecked, @IsLockedOut, @DisplayName, @Email, @Mobile, @AvatarUrl, @Organization, @Department, @Position, @Gender, @Birthday, @Education, @Graduation, @Address, @WeiXin, @QQ, @WeiBo, @Interests, @Signature)";
+
+                using (var connection = GetConnection())
+                {
+                    connection.Execute(sqlString, userInfo);
+                }
+
+                IpAddressCache(ipAddress);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
         }
     }
 }
